@@ -1,168 +1,112 @@
-﻿string[] lines = File.ReadAllLinesAsync("Input.txt").Result;
+﻿using System.Collections.Concurrent;
 
-var numericPad = new string[][]
+string[] lines = File.ReadAllLinesAsync("Input.txt").Result;
+
+Dictionary<(int x, int y), char> numericPad = new()
 {
-	new string[] { "7", "8", "9" },
-	new string[] { "4", "5", "6" },
-	new string[] { "1", "2", "3" },
-	new string[] { string.Empty, "0", "A" }
+	[(0, 0)] = '7',
+	[(1, 0)] = '8',
+	[(2, 0)] = '9',
+	[(0, -1)] = '4',
+	[(1, -1)] = '5',
+	[(2, -1)] = '6',
+	[(0, -2)] = '1',
+	[(1, -2)] = '2',
+	[(2, -2)] = '3',
+	[(0, -3)] = ' ',
+	[(1, -3)] = '0',
+	[(2, -3)] = 'A'
 };
 
-var directionalPad = new string[][]
+Dictionary<(int x, int y), char> directionalPad = new()
 {
-	new string[] { string.Empty, "^", "A" },
-	new string[] { "<", "v", ">" }
+	[(0, 0)] = ' ',
+	[(1, 0)] = '^',
+	[(2, 0)] = 'A',
+	[(0, -1)] = '<',
+	[(1, -1)] = 'v',
+	[(2, -1)] = '>'
 };
 
-var cache = new Dictionary<(string, string, int), long>();
+ConcurrentDictionary<(char currentKey, char nextKey, int depth), long> cache = new ConcurrentDictionary<(char currentKey, char nextKey, int depth), long>();
 
-long result = 0;
+var pads = Enumerable.Repeat(directionalPad, 2).Prepend(numericPad).ToArray();
 
-foreach (string line in lines)
+var total = 0L;
+
+foreach (var line in lines)
 {
-	int number = int.Parse(line.Substring(0, 3));
-	long total = 0;
+	var number = int.Parse(line[..^1]);
 
-	for (int i = 0; i < line.Length; i++)
-	{
-		string startPosition = i == 0
-			? "A"
-			: line[i - 1].ToString();
-		string endPosition = line[i].ToString();
-
-		total += Shortest(GetPos(numericPad, startPosition), GetPos(numericPad, endPosition), 3);
-	}
-
-	result += number * total;
+	total += number * EncodeKeys(line, pads);
 }
 
-Console.WriteLine(result);
+Console.WriteLine(total);
+
 
 // Part 2
-result = 0;
+cache = new ConcurrentDictionary<(char currentKey, char nextKey, int depth), long>();
 
-foreach (string line in lines)
+pads = Enumerable.Repeat(directionalPad, 25).Prepend(numericPad).ToArray();
+
+total = 0L;
+
+foreach (var line in lines)
 {
-	int number = int.Parse(line.Substring(0, 3));
-	long total = 0;
+	var number = int.Parse(line[..^1]);
 
-	for (int i = 0; i < line.Length; i++)
-	{
-		string startPosition = i == 0
-			? "A"
-			: line[i - 1].ToString();
-		string endPosition = line[i].ToString();
-
-		total += Shortest(GetPos(numericPad, startPosition), GetPos(numericPad, endPosition), 26);
-	}
-
-	result += number * total;
+	total += number * EncodeKeys(line, pads);
 }
 
-Console.WriteLine(result);
+Console.WriteLine(total);
 
 
-(int, int)? GetPos(string[][] pad, string code)
+long EncodeKeys(string keys, Dictionary<(int x, int y), char>[] pads)
 {
-	for (int i = 0; i < pad.Length; i++)
+	if (pads.Length == 0)
 	{
-		var row = pad[i];
-		var index = Array.IndexOf(row, code);
-
-		if (index != -1)
-		{
-			return (i, index);
-		}
-	}
-
-	return null;
-}
-
-long Shortest(object? start, object? end, int layers)
-{
-	if (start is string sStart &&
-		end is string sEnd
-		&& sStart == "<"
-		&& sEnd == ">")
-	{
-		return 0;
-	}
-
-	if (start is string startStr)
-	{
-		start = GetPos(directionalPad, startStr);
-	}
-
-	if (end is string endStr)
-	{
-		end = GetPos(directionalPad, endStr);
-	}
-
-	if (!(start is (int, int)) ||
-		!(end is (int, int)))
-	{
-		throw new InvalidOperationException("Invalid start or end position.");
-	}
-
-	var startPosition = ((int, int))start;
-	var endPosition = ((int, int))end;
-
-	var key = (startPosition.ToString(), endPosition.ToString(), layers);
-	if (cache.ContainsKey(key))
-	{
-		return cache[key];
-	}
-
-	if (layers == 0)
-	{
-		return 1;
-	}
-
-	string verticalMove = string.Empty;
-	string horizontalMove = string.Empty;
-
-	if (endPosition.Item1 < startPosition.Item1)
-	{
-		verticalMove = "^";
-	}
-	else if (endPosition.Item1 > startPosition.Item1)
-	{
-		verticalMove = "v";
-	}
-
-	if (endPosition.Item2 < startPosition.Item2)
-	{
-		horizontalMove = "<";
-	}
-	else if (endPosition.Item2 > startPosition.Item2)
-	{
-		horizontalMove = ">";
-	}
-
-	long result;
-	if (horizontalMove == null && verticalMove == null)
-	{
-		result = Shortest("A", "A", layers - 1);
-	}
-	else if (horizontalMove == null)
-	{
-		result = Shortest("A", verticalMove, layers - 1) +
-			(Math.Abs(endPosition.Item1 - startPosition.Item1) - 1) * Shortest(verticalMove, verticalMove, layers - 1) + Shortest(verticalMove, "A", layers - 1);
-	}
-	else if (verticalMove == null)
-	{
-		result = Shortest("A", horizontalMove, layers - 1) +
-			(Math.Abs(endPosition.Item2 - startPosition.Item2) - 1) * Shortest(horizontalMove, horizontalMove, layers - 1) + Shortest(horizontalMove, "A", layers - 1);
+		return keys.Length;
 	}
 	else
 	{
-		result = Math.Min(
-			Shortest("A", horizontalMove, layers - 1) + (Math.Abs(endPosition.Item2 - startPosition.Item2) - 1) * Shortest(horizontalMove, horizontalMove, layers - 1) + Shortest(horizontalMove, verticalMove, layers - 1) + (Math.Abs(endPosition.Item1 - startPosition.Item1) - 1) * Shortest(verticalMove, verticalMove, layers - 1) + Shortest(verticalMove, "A", layers - 1),
-			Shortest("A", verticalMove, layers - 1) + (Math.Abs(endPosition.Item1 - startPosition.Item1) - 1) * Shortest(verticalMove, verticalMove, layers - 1) + Shortest(verticalMove, horizontalMove, layers - 1) + (Math.Abs(endPosition.Item2 - startPosition.Item2) - 1) * Shortest(horizontalMove, horizontalMove, layers - 1) + Shortest(horizontalMove, "A", layers - 1)
-		);
+		var currentKey = 'A';
+		var length = 0L;
+
+		foreach (var nextKey in keys)
+		{
+			length += EncodeKey(currentKey, nextKey, pads, cache);
+			currentKey = nextKey;
+		}
+
+		return length;
 	}
-
-	cache[key] = result;
-
-	return result;
 }
+
+long EncodeKey(char currentKey, char nextKey, Dictionary<(int x, int y), char>[] keypads, ConcurrentDictionary<(char currentKey, char nextKey, int depth), long> cache) =>
+	cache.GetOrAdd((currentKey, nextKey, keypads.Length), _ =>
+	{
+		var keypad = keypads[0];
+
+		var currentPos = keypad.Single(kvp => kvp.Value == currentKey).Key;
+		var nextPos = keypad.Single(kvp => kvp.Value == nextKey).Key;
+
+		var dy = nextPos.y - currentPos.y;
+		var vert = new string(dy < 0 ? 'v' : '^', Math.Abs(dy));
+
+		var dx = nextPos.x - currentPos.x;
+		var horiz = new string(dx < 0 ? '<' : '>', Math.Abs(dx));
+
+		var cost = long.MaxValue;
+
+		if (keypad[(currentPos.x, nextPos.y)] != ' ')
+		{
+			cost = Math.Min(cost, EncodeKeys($"{vert}{horiz}A", keypads[1..]));
+		}
+
+		if (keypad[(nextPos.x, currentPos.y)] != ' ')
+		{
+			cost = Math.Min(cost, EncodeKeys($"{horiz}{vert}A", keypads[1..]));
+		}
+
+		return cost;
+	});
